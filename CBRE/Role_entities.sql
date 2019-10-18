@@ -8,13 +8,17 @@ WITH loginHistory as (
     GROUP BY l.[UserName]
 )
 , userClasses AS (
-    SELECT [UserName], [FullName], [UserClass], [UserEmail]
-    FROM [dbo].[fn_UserClasses] ()  
+    SELECT 
+        [UserName]
+        , [FullName]
+        , [UserClass]
+        , [UserEmail]
+    FROM [MRI_AUNZ].[dbo].[fn_UserClasses] ()  
 )
 , classUpdate AS (
     SELECT 
         C.[CLASS_ID] AS [UserName]
-        , dbo.MRIEntityClassLookup(C.[CLASS_ID]) as [classUpdate]
+        , [MRI_AUNZ].dbo.MRIEntityClassLookup(C.[CLASS_ID]) as [classUpdate]
     FROM [MRI_AUNZ].[dbo].[MRICLDEF] C WITH (nolock)
     WHERE C.[TYPE] = 'U'
         AND c.[CLASS_ID] NOT IN (
@@ -37,5 +41,5 @@ FROM [MRI_AUNZ].[dbo].[MRICLDEF] C WITH (nolock)
     LEFT JOIN [MRI_AUNZ].[dbo].[WORKFLOWUSER] W WITH (nolock) ON C.[CLASS_ID] = W.[USERID]
     LEFT JOIN loginHistory LD ON U.[username] = LD.[UserName]
     LEFT JOIN classUpdate cu ON u.[UserName] = cu.[UserName]
-    LEFT JOIN userClasses uc ON u.[UserName] = uc.[UserName]
+    INNER JOIN userClasses uc ON u.[UserName] = uc.[UserName]
 WHERE C.[TYPE] = 'U'
