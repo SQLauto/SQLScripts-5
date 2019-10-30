@@ -15,6 +15,29 @@ WHERE h.[CASHTYPE] = 'OP'
        AND h.[TAXITEM] = 'N'
 );
 
+SELECT @totalLines as [@totalLines]
+
+SELECT (
+    SELECT COUNT(*) as NumInvoices 
+    FROM HIST  WITH (NOLOCK)  
+        INNER JOIN INVC  ON HIST.VENDID = INVC.VENDID AND HIST.INVOICE = INVC.INVOICE AND HIST.EXPPED = INVC.EXPPED   
+        LEFT JOIN POHD  WITH (NOLOCK) ON HIST.PONUM = POHD.PONUM      
+        INNER JOIN VEND  WITH (NOLOCK) ON HIST.VENDID = VEND.VENDID      
+        INNER JOIN GACC  WITH (NOLOCK) ON HIST.ACCTNUM = GACC.ACCTNUM 
+    WHERE HIST.CASHTYPE ='OP'  
+        AND  HIST.CHECKPD IS NULL   
+        AND HIST.STATUS NOT IN ('U','C','W','D','V')  
+        AND (
+                (
+                    HIST.ATAXID IS NOT NULL  
+                    AND (HIST.TRANSFERITEM = 'N' OR HIST.TRANSFERITEM IS NULL)
+                ) 
+                OR HIST.ATAXID IS NULL
+        )   
+        AND HIST.ENTITYID =@entityID  
+        AND HIST.TAXITEM = 'N'  
+) AS  NUMINVOICES
+
 -- build list of available pages
 DECLARE @availPages varchar(50) = '< unset >';
 WITH lv0 AS (SELECT 0 g UNION ALL SELECT 0)
@@ -50,6 +73,34 @@ WHERE t.[n] <= CASE WHEN lc.[totalLines] <= @linesToFetch THEN 1 ELSE (lc.[total
 -- 		) x
 -- 		FOR XML PATH('')
 -- 	), 1, 1, '') 
+DECLARE @NumInvoices int = 0;
+
+SET @NumInvoices = (
+    SELECT COUNT(*) as [totalLines]
+    FROM [MRI_AUNZ].[dbo].[HIST] h WITH (nolock)
+    WHERE h.[CASHTYPE] = 'OP'
+       AND h.[CHECKPD] IS NULL  
+       AND h.[STATUS] NOT IN ('U','C','W','D','V','T') 
+       AND ((h.[ATAXID] IS NOT NULL AND (h.[TRANSFERITEM] = 'N' OR h.[TRANSFERITEM] IS NULL)) OR h.[ATAXID] IS NULL) 
+       AND h.[ENTITYID] = @entityID
+       AND h.[TAXITEM] = 'N'
+);
+
+-- cte to replace actual tally table
+;WITH lv0 AS (SELECT 0 g UNION ALL SELECT 0)
+       ,lv1 AS (SELECT 0 g FROM lv0 a CROSS JOIN lv0 b) -- 4 lines
+       ,lv2 AS (SELECT 0 g FROM lv1 a CROSS JOIN lv1 b) -- 16 lines
+       ,lv3 AS (SELECT 0 g FROM lv2 a CROSS JOIN lv2 b) -- 256 lines
+       ,lv4 AS (SELECT 0 g FROM lv3 a CROSS JOIN lv3 b) -- 65536 lines
+       ,Tally (n) AS (SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) FROM lv4
+)
+SELECT DISTINCT 
+    CAST(((t.[n]/@linesToFetch)*@linesToFetch)+1 as varchar(10)) + ' - ' 
+    + CAST(((t.[n]/@linesToFetch)+1)*@linesToFetch as varchar(10)) as [Pages]
+    ,DENSE_RANK() OVER(ORDER BY ((t.[n]/@linesToFetch)*@linesToFetch)+1) as [RN]
+FROM Tally t
+WHERE t.[n] <= @NumInvoices
+ORDER BY [RN]
 
 
 -- just for example and testing, randomly select which page number we want to show
