@@ -23,5 +23,14 @@ from master.dbo.sysdatabases sDb
     ) bkp
   on sDb.name = bkp.database_name
 where datediff(hh, database_backup, getdate()) > 25
-  or (databasepropertyex(sDb.name, 'Recovery') = 'FULL' and log_backup is null)
+   or (databasepropertyex(sDb.name, 'Recovery') = 'FULL' and log_backup is null)
 
+
+SELECT 
+	[database_name],[type]
+	,MAX([backup_start_date]) as [latest_backup]
+    ,CAST(AVG((([backup_size]/1024.0)/1024.0)) as decimal(9,2)) as [backup_size_MB]
+    ,CAST(AVG((([compressed_backup_size]/1024.0)/1024.0)) as decimal(9,2)) as [compressed_backup_size_MB]
+FROM [msdb].[dbo].[backupset]
+GROUP BY [database_name],[type]
+ORDER BY [database_name],[type]
